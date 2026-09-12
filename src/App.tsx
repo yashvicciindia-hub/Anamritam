@@ -8,7 +8,8 @@ import { CONTACT_DETAILS, GOOGLE_FORM_FIELD_IDS, GOOGLE_FORM_URL } from '@/confi
 
 type Theme = 'light' | 'dark';
 type Category = 'Ladoos' | 'Protein Bars';
-type Page = 'home' | 'products' | 'story' | 'contact' | 'cart' | 'login' | 'register' | 'checkout' | 'success' | 'product';
+type Page = 'home' | 'products' | 'story' | 'why' | 'contact' | 'cart' | 'login' | 'register' | 'checkout' | 'success' | 'product';
+type ProductFilter = 'All' | Category;
 type Product = { id: string; name: string; category: Category; description: string; price: number; image: string; hoverImage?: string; ingredients: string; pack: string; nutrition: string };
 type CartLine = { product: Product; quantity: number };
 type User = { name: string; email: string; phone: string; password: string };
@@ -89,7 +90,6 @@ const products: Product[] = [
   { id: 'nutri-bites', name: 'Nutri Bites', category: 'Protein Bars', description: 'A wholesome protein bar made specially for kids, with a delicious bite for growing everyday adventures.', price: 299, image: '/images/products/nutribites.png', hoverImage: '/images/products/nutribar_hover.png', ingredients: 'Oats, peanuts, almonds, cashews, seeds, dates and chocolate coating', pack: 'Pack of 1 · 60 g', nutrition: 'Serving size 60 g · See pack for details' },
 ];
 
-const heroImage = 'https://images.pexels.com/photos/7932705/pexels-photo-7932705.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
 const instagramUrl = 'https://www.instagram.com/anamritam?igsi=N3U3MXB3OHlmNGxy';
 
 function readStorage<T>(key: string, fallback: T): T { try { const value = localStorage.getItem(key); return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } }
@@ -106,6 +106,7 @@ function App() {
     }
   });
   const [page, setPage] = useState<Page>('home');
+  const [productFilter, setProductFilter] = useState<ProductFilter>('All');
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
   const [cart, setCart] = useState<CartLine[]>(() => readStorage('anamritam-cart', []));
   const [user, setUser] = useState<User | null>(() => readStorage('anamritam-session', null));
@@ -134,6 +135,7 @@ function App() {
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
   const navigate = (next: Page) => { setPage(next); setMenuOpen(false); setCartOpen(false); };
+  const navigateToProducts = (filter: ProductFilter = 'All') => { setProductFilter(filter); navigate('products'); };
   const openProduct = (product: Product) => { setSelectedProduct(product); navigate('product'); };
   const addToCart = (product: Product, quantity = 1) => {
     setCart(current => { const existing = current.find(line => line.product.id === product.id); return existing ? current.map(line => line.product.id === product.id ? { ...line, quantity: line.quantity + quantity } : line) : [...current, { product, quantity }]; });
@@ -149,6 +151,7 @@ function App() {
       user={user}
       theme={theme}
       currentPage={page}
+      onProductFilter={navigateToProducts}
       onToggleTheme={toggleTheme}
       onNavigate={navigate}
       onCart={() => setCartOpen(true)}
@@ -162,6 +165,7 @@ function App() {
       itemCount={itemCount}
       user={user}
       theme={theme}
+      onProductFilter={navigateToProducts}
       onToggleTheme={toggleTheme}
       onNavigate={navigate}
       onCart={() => { setMenuOpen(false); setCartOpen(true); }}
@@ -170,9 +174,10 @@ function App() {
     />
     <main>
       {page === 'home' && <Home onNavigate={navigate} onProduct={openProduct} onAdd={addToCart} />}
-      {page === 'products' && <Products onProduct={openProduct} onAdd={addToCart} />}
+      {page === 'products' && <Products filter={productFilter} onFilterChange={setProductFilter} onProduct={openProduct} onAdd={addToCart} />}
       {page === 'product' && <ProductDetails product={selectedProduct} onAdd={addToCart} onBack={() => navigate('products')} />}
       {page === 'story' && <Story onNavigate={navigate} />}
+      {page === 'why' && <WhyAnamritam onNavigate={navigate} />}
       {page === 'contact' && <Contact />}
       {page === 'cart' && <CartPage cart={cart} subtotal={subtotal} onChange={changeQuantity} onRemove={removeItem} onNavigate={navigate} />}
       {page === 'register' && <Register onRegister={setUser} onNavigate={navigate} />}
@@ -233,6 +238,7 @@ interface NavbarProps {
   user: User | null;
   theme: Theme;
   currentPage: Page;
+    onProductFilter: (filter: ProductFilter) => void;
   menuOpen: boolean;
   onToggleTheme: () => void;
   onNavigate: (page: Page) => void;
@@ -246,6 +252,7 @@ function Navbar({
   user,
   theme,
   currentPage,
+  onProductFilter,
   onToggleTheme,
   onNavigate,
   onCart,
@@ -254,6 +261,8 @@ function Navbar({
   onLogout,
 }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
+  const productsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -262,6 +271,19 @@ function Navbar({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!productsMenuRef.current?.contains(event.target as Node)) setProductsOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
+  const selectProductFilter = (filter: ProductFilter) => {
+    onProductFilter(filter);
+    setProductsOpen(false);
+  };
 
   return (
     <header className={`navbar ${scrolled ? 'is-scrolled' : ''}`}>
@@ -288,12 +310,27 @@ function Navbar({
           >
             Home
           </button>
-          <button
-            className={`nav-link ${currentPage === 'products' || currentPage === 'product' ? 'is-active' : ''}`}
-            onClick={() => onNavigate('products')}
+          <div
+            className="nav-dropdown"
+            ref={productsMenuRef}
+            onMouseEnter={() => setProductsOpen(true)}
+            onMouseLeave={() => setProductsOpen(false)}
           >
-            Products
-          </button>
+            <button
+              className={`nav-link ${currentPage === 'products' || currentPage === 'product' ? 'is-active' : ''}`}
+              onClick={() => setProductsOpen(value => !value)}
+              aria-haspopup="menu"
+              aria-expanded={productsOpen}
+              type="button"
+            >
+              Products <ChevronDown size={13} aria-hidden="true" />
+            </button>
+            {productsOpen && <div className="nav-dropdown-menu" role="menu">
+              {(['All', 'Ladoos', 'Protein Bars'] as const).map(filter => (
+                <button key={filter} type="button" role="menuitem" onClick={() => selectProductFilter(filter)}>{filter}</button>
+              ))}
+            </div>}
+          </div>
           <button
             className={`nav-link ${currentPage === 'story' ? 'is-active' : ''}`}
             onClick={() => onNavigate('story')}
@@ -301,8 +338,8 @@ function Navbar({
             Our Story
           </button>
           <button
-            className="nav-link"
-            onClick={() => onNavigate('story')}
+            className={`nav-link ${currentPage === 'why' ? 'is-active' : ''}`}
+            onClick={() => onNavigate('why')}
           >
             Why Anamritam
           </button>
@@ -354,6 +391,7 @@ interface MobileMenuProps {
   itemCount: number;
   user: User | null;
   theme: Theme;
+  onProductFilter: (filter: ProductFilter) => void;
   onToggleTheme: () => void;
   onNavigate: (page: Page) => void;
   onCart: () => void;
@@ -367,12 +405,15 @@ function MobileMenu({
   itemCount,
   user,
   theme,
+  onProductFilter,
   onToggleTheme,
   onNavigate,
   onCart,
   onClose,
   onLogout,
 }: MobileMenuProps) {
+  const [productsOpen, setProductsOpen] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -400,7 +441,7 @@ function MobileMenu({
     { label: 'Home', page: 'home' as Page, num: '01' },
     { label: 'Products', page: 'products' as Page, num: '02' },
     { label: 'Our Story', page: 'story' as Page, num: '03' },
-    { label: 'Why Anamritam', page: 'story' as Page, num: '04' },
+    { label: 'Why Anamritam', page: 'why' as Page, num: '04' },
     { label: 'Contact', page: 'contact' as Page, num: '05' },
   ];
 
@@ -427,6 +468,25 @@ function MobileMenu({
             const isActive =
               item.page === currentPage ||
               (item.page === 'products' && currentPage === 'product');
+            if (item.page === 'products') {
+              return <div className="mobile-products-group" key={item.label}>
+                <button
+                  className={`mobile-nav-link ${isActive ? 'is-active' : ''}`}
+                  style={{ animationDelay: `${0.04 * (index + 1)}s` }}
+                  onClick={() => setProductsOpen(value => !value)}
+                  aria-expanded={productsOpen}
+                  aria-haspopup="menu"
+                >
+                  <span className="mobile-nav-num">{item.num}</span>
+                  <span className="mobile-nav-label">Products</span>
+                  <ChevronDown className={productsOpen ? 'is-open' : ''} size={18} aria-hidden="true" />
+                  {isActive && <span className="mobile-active-dot" />}
+                </button>
+                {productsOpen && <div className="mobile-products-submenu" role="menu">
+                  {(['All', 'Ladoos', 'Protein Bars'] as const).map(filter => <button key={filter} type="button" role="menuitem" onClick={() => onProductFilter(filter)}>{filter}</button>)}
+                </div>}
+              </div>;
+            }
             return (
               <button
                 key={item.label}
@@ -490,7 +550,7 @@ function MobileMenu({
   );
 }
 function HomeContent({ onNavigate, onProduct, onAdd }: { onNavigate: (page: Page) => void; onProduct: (p: Product) => void; onAdd: (p: Product, q?: number) => void }) {
-  return <><section className="hero"><div className="hero-copy"><p className="eyebrow">Nourishment, made the Indian way</p><h1>Goodness that<br /><em>comes naturally.</em></h1><p className="hero-subtitle">Pure, fresh and wholesome ladoos and protein bars crafted for everyday nourishment.</p><div className="hero-actions"><button className="button button-dark" onClick={() => onNavigate('products')}>Shop now <ArrowRight size={17} /></button><button className="text-button" onClick={() => onNavigate('products')}>Explore our products <ArrowRight size={16} /></button></div><div className="hero-trust"><span><Leaf size={17} /> Thoughtfully sourced</span><span><Sparkles size={17} /> Small-batch made</span></div></div><div className="hero-visual"><img src={heroImage} alt="Indian ingredients arranged on a natural kitchen table" /><div className="hero-badge"><span>01</span><p>Rooted in<br />real ingredients</p></div></div></section><section className="intro section"><div className="intro-mark">A</div><div><p className="eyebrow">A little about us</p><h2>Welcome to <em>Anamritam</em></h2><p className="body-copy">We bring together the goodness of traditional Indian ingredients and the ease of modern nutrition. Honest food, made with care, for the everyday moments that matter.</p><button className="underlined-link" onClick={() => onNavigate('story')}>Our story <ArrowRight size={15} /></button></div></section><CategorySection onNavigate={onNavigate} /><section className="section featured-section"><SectionHeading eyebrow="Made for your everyday" title="Favourites, for good reason" action="Shop all" onAction={() => onNavigate('products')} /><div className="product-grid featured-grid">{products.slice(0, 4).map(product => <ProductCard key={product.id} product={product} onAdd={onAdd} onView={onProduct} />)}</div></section><WhySection /><section className="story-banner"><div className="story-banner-image"><img src="https://images.pexels.com/photos/34142354/pexels-photo-34142354.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Peanuts and grains prepared for a wholesome recipe" /></div><div className="story-banner-copy"><p className="eyebrow">The Anamritam way</p><h2>Rooted in tradition.<br /><em>Made for today.</em></h2><p>We believe nourishing food can be joyful, convenient and deeply connected to where we come from.</p><button className="button button-light" onClick={() => onNavigate('story')}>Discover our story <ArrowRight size={17} /></button></div></section><InstagramSection /></>;
+  return <><section className="hero"><div className="hero-copy"><p className="eyebrow">Nourishment, made the Indian way</p><h1>Goodness that<br /><em>comes naturally.</em></h1><p className="hero-subtitle">Pure, fresh and wholesome ladoos and protein bars crafted for everyday nourishment.</p><div className="hero-actions"><button className="button button-dark" onClick={() => onNavigate('products')}>Shop now <ArrowRight size={17} /></button><button className="text-button" onClick={() => onNavigate('products')}>Explore our products <ArrowRight size={16} /></button></div><div className="hero-trust"><span><Leaf size={17} /> Thoughtfully sourced</span><span><Sparkles size={17} /> Small-batch made</span></div></div></section><section className="intro section"><div className="intro-mark">A</div><div><p className="eyebrow">A little about us</p><h2>Welcome to <em>Anamritam</em></h2><p className="body-copy">We bring together the goodness of traditional Indian ingredients and the ease of modern nutrition. Honest food, made with care, for the everyday moments that matter.</p><button className="underlined-link" onClick={() => onNavigate('story')}>Our story <ArrowRight size={15} /></button></div></section><CategorySection onNavigate={onNavigate} /><section className="section featured-section"><SectionHeading eyebrow="Made for your everyday" title="Favourites, for good reason" action="Shop all" onAction={() => onNavigate('products')} /><div className="product-grid featured-grid">{products.slice(0, 4).map(product => <ProductCard key={product.id} product={product} onAdd={onAdd} onView={onProduct} />)}</div></section><WhySection /><section className="story-banner"><div className="story-banner-image"><img src="https://images.pexels.com/photos/34142354/pexels-photo-34142354.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Peanuts and grains prepared for a wholesome recipe" /></div><div className="story-banner-copy"><p className="eyebrow">The Anamritam way</p><h2>Rooted in tradition.<br /><em>Made for today.</em></h2><p>We believe nourishing food can be joyful, convenient and deeply connected to where we come from.</p><button className="button button-light" onClick={() => onNavigate('story')}>Discover our story <ArrowRight size={17} /></button></div></section><InstagramSection /></>;
 }
 function Home({ onNavigate, onProduct, onAdd }: { onNavigate: (page: Page) => void; onProduct: (p: Product) => void; onAdd: (p: Product, q?: number) => void }) {
   const nutriBites = products.find(product => product.id === 'nutri-bites')!;
@@ -547,7 +607,7 @@ function ProductCard({ product, onAdd, onView }: { product: Product; onAdd: (p: 
 function QuantitySelector({ quantity, onChange }: { quantity: number; onChange: (q: number) => void }) { return <div className="quantity-selector"><button onClick={() => onChange(Math.max(1, quantity - 1))} aria-label="Decrease quantity"><Minus size={14} /></button><span>{quantity}</span><button onClick={() => onChange(quantity + 1)} aria-label="Increase quantity"><Plus size={14} /></button></div>; }
 function WhySection() { const items = [{ icon: Leaf, title: 'Pure ingredients', text: 'Thoughtfully selected ingredients.' }, { icon: Sparkles, title: 'Freshly crafted', text: 'Made with care for freshness.' }, { icon: Zap, title: 'Wholesome nutrition', text: 'Balanced nourishment, every day.' }, { icon: Star, title: 'Rooted in tradition', text: 'Indian food, thoughtfully reimagined.' }]; return <section className="section why-section"><SectionHeading eyebrow="Why Anamritam" title="The good stuff, made simple" /><div className="why-grid">{items.map(item => <div className="why-item" key={item.title}><item.icon size={25} strokeWidth={1.5} /><h3>{item.title}</h3><p>{item.text}</p></div>)}</div></section>; }
 function InstagramSection() { return <section className="instagram-section"><div><Instagram size={28} /><p className="eyebrow">From our kitchen to your feed</p><h2>Follow <em>Anamritam</em></h2><p>Discover our products, stories and journey.</p><a className="button button-dark" href={instagramUrl} target="_blank" rel="noreferrer">Follow us on Instagram <ArrowRight size={17} /></a></div><div className="insta-grid"><img src="https://images.pexels.com/photos/15741144/pexels-photo-15741144.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Colourful spices at a market" /><img src="https://images.pexels.com/photos/57042/pexels-photo-57042.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Almonds ready for snacking" /><img src="https://images.pexels.com/photos/7932705/pexels-photo-7932705.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Natural ingredients on a table" /></div></section>; }
-function Products({ onProduct, onAdd }: { onProduct: (p: Product) => void; onAdd: (p: Product, q?: number) => void }) { const [filter, setFilter] = useState<'All' | Category>('All'); const [sort, setSort] = useState('Featured'); const shown = useMemo(() => [...products.filter(p => filter === 'All' || p.category === filter)].sort((a, b) => sort === 'Price: Low to High' ? a.price - b.price : sort === 'Price: High to Low' ? b.price - a.price : 0), [filter, sort]); return <section className="products-page"><div className="page-hero"><div><p className="eyebrow">A little good goes a long way</p><h1>Shop Anamritam</h1><p>Wholesome Indian nourishment, made for everyday life.</p></div><span className="page-hero-count">{products.length} products</span></div><div className="products-toolbar"><div className="filter-tabs">{(['All', 'Ladoos', 'Protein Bars'] as const).map(option => <button key={option} className={filter === option ? 'active' : ''} onClick={() => setFilter(option)}>{option}</button>)}</div><label className="sort-select"><span>Sort by</span><select value={sort} onChange={event => setSort(event.target.value)}><option>Featured</option><option>Price: Low to High</option><option>Price: High to Low</option></select><ChevronDown size={15} /></label></div><div className="section products-grid-section"><div className="product-grid all-products-grid">{shown.map(product => <ProductCard key={product.id} product={product} onAdd={onAdd} onView={onProduct} />)}</div></div></section>; }
+function Products({ filter, onFilterChange, onProduct, onAdd }: { filter: ProductFilter; onFilterChange: (filter: ProductFilter) => void; onProduct: (p: Product) => void; onAdd: (p: Product, q?: number) => void }) { const [sort, setSort] = useState('Featured'); const shown = useMemo(() => [...products.filter(p => filter === 'All' || p.category === filter)].sort((a, b) => sort === 'Price: Low to High' ? a.price - b.price : sort === 'Price: High to Low' ? b.price - a.price : 0), [filter, sort]); return <section className="products-page"><div className="page-hero"><div><p className="eyebrow">A little good goes a long way</p><h1>Shop Anamritam</h1><p>Wholesome Indian nourishment, made for everyday life.</p></div><span className="page-hero-count">{products.length} products</span></div><div className="products-toolbar"><div className="filter-tabs">{(['All', 'Ladoos', 'Protein Bars'] as const).map(option => <button key={option} className={filter === option ? 'active' : ''} onClick={() => onFilterChange(option)}>{option}</button>)}</div><label className="sort-select"><span>Sort by</span><select value={sort} onChange={event => setSort(event.target.value)}><option>Featured</option><option>Price: Low to High</option><option>Price: High to Low</option></select><ChevronDown size={15} /></label></div><div className="section products-grid-section"><div className="product-grid all-products-grid">{shown.map(product => <ProductCard key={product.id} product={product} onAdd={onAdd} onView={onProduct} />)}</div></div></section>; }
 function ProductDetails({ product, onAdd, onBack }: { product: Product; onAdd: (p: Product, q?: number) => void; onBack: () => void }) { const [quantity, setQuantity] = useState(1); const [tab, setTab] = useState('Description'); const [activeImg, setActiveImg] = useState(product.image); return <section className="product-detail-page"><button className="back-link" onClick={onBack}><ChevronLeft size={17} /> Back to products</button><div className="product-detail"><div className="detail-image-col"><div className="detail-image"><img src={activeImg} alt={product.name} /></div>{product.hoverImage && <div className="detail-thumbnails"><button className={`detail-thumb ${activeImg === product.image ? 'is-active' : ''}`} onClick={() => setActiveImg(product.image)}><img src={product.image} alt={product.name} /></button><button className={`detail-thumb ${activeImg === product.hoverImage ? 'is-active' : ''}`} onClick={() => setActiveImg(product.hoverImage!)}><img src={product.hoverImage} alt={`${product.name} alternate view`} /></button></div>}</div><div className="detail-copy"><p className="product-category">{product.category}</p><h1>{product.name}</h1><div className="detail-rating"><span>★★★★★</span> <small>Made with care</small></div><p className="detail-price">{money(product.price)}</p><p className="detail-description">{product.description}</p><div className="detail-meta"><span>Pack size<strong>{product.pack}</strong></span><span>Made with<strong>Real ingredients</strong></span></div><div className="detail-buy"><QuantitySelector quantity={quantity} onChange={setQuantity} /><button className="button button-dark" onClick={() => onAdd(product, quantity)}>Add to cart <ShoppingBag size={17} /></button></div><p className="delivery-note"><Truck size={17} /> Carefully packed and delivered fresh</p></div></div><div className="detail-tabs"><div>{['Description', 'Ingredients', 'Nutrition information'].map(item => <button className={tab === item ? 'active' : ''} key={item} onClick={() => setTab(item)}>{item}</button>)}</div><p>{tab === 'Description' ? product.description : tab === 'Ingredients' ? product.ingredients : product.nutrition}</p></div></section>; }
 function CartDrawer({ cart, subtotal, onChange, onRemove, onClose, onNavigate }: { cart: CartLine[]; subtotal: number; onChange: (id: string, d: number) => void; onRemove: (id: string) => void; onClose: () => void; onNavigate: (p: Page) => void }) { return <div className="drawer-backdrop" onClick={onClose}><aside className="cart-drawer" onClick={event => event.stopPropagation()}><div className="drawer-header"><h2>Your cart <span>{cart.length}</span></h2><button onClick={onClose} aria-label="Close cart"><X size={21} /></button></div>{cart.length === 0 ? <EmptyCart onNavigate={onNavigate} /> : <><div className="drawer-items">{cart.map(line => <CartItem key={line.product.id} line={line} onChange={onChange} onRemove={onRemove} />)}</div><div className="drawer-summary"><div><span>Subtotal</span><strong>{money(subtotal)}</strong></div><p>Shipping calculated at checkout.</p><button className="button button-dark full-width" onClick={() => onNavigate('checkout')}>Checkout <ArrowRight size={17} /></button><button className="view-cart-button" onClick={() => onNavigate('cart')}>View full cart</button></div></>}</aside></div>; }
 function CartItem({ line, onChange, onRemove }: { line: CartLine; onChange: (id: string, d: number) => void; onRemove: (id: string) => void }) { return <div className="cart-item"><img src={line.product.image} alt={line.product.name} /><div className="cart-item-content"><div><h3>{line.product.name}</h3><p>{money(line.product.price)}</p></div><button className="remove-button" aria-label={`Remove ${line.product.name}`} onClick={() => onRemove(line.product.id)}><Trash2 size={15} /></button><div className="cart-item-bottom"><div className="mini-quantity"><button onClick={() => onChange(line.product.id, -1)}><Minus size={12} /></button><span>{line.quantity}</span><button onClick={() => onChange(line.product.id, 1)}><Plus size={12} /></button></div><strong>{money(line.product.price * line.quantity)}</strong></div></div></div>; }
@@ -561,7 +621,8 @@ function Checkout({ user, cart, subtotal, onNavigate }: { user: User | null; car
 function OrderSummary({ cart, subtotal }: { cart: CartLine[]; subtotal: number }) { return <aside className="order-summary"><h2>Order summary</h2>{cart.map(line => <div className="order-line" key={line.product.id}><img src={line.product.image} alt="" /><div><p>{line.product.name}</p><span>Qty {line.quantity}</span></div><strong>{money(line.product.price * line.quantity)}</strong></div>)}<div className="summary-total"><span>Total</span><strong>{money(subtotal)}</strong></div><p className="secure-note"><Leaf size={15} /> Simple, transparent ordering</p></aside>; }
 function ReviewOrder({ form, cart, subtotal, onBack, onConfirm, error }: { form: Checkout; cart: CartLine[]; subtotal: number; onBack: () => void; onConfirm: () => void; error: string }) { return <div className="review-layout"><div className="review-card"><div className="review-card-heading"><h2>Review your order</h2><button onClick={onBack}>Edit details</button></div>{cart.map(line => <div className="review-line" key={line.product.id}><span>{line.quantity} × {line.product.name}</span><strong>{money(line.product.price * line.quantity)}</strong></div>)}<div className="summary-total"><span>Total</span><strong>{money(subtotal)}</strong></div><div className="customer-review"><h3>Delivering to</h3><p>{form.name}<br />{form.phone} · {form.email}<br />{form.address}, {form.city}, {form.state} - {form.pincode}</p></div>{error && <p className="form-error">{error}</p>}<button className="button button-dark full-width" onClick={onConfirm}>Confirm & continue <ArrowRight size={17} /></button><p className="review-disclaimer">You’ll complete the final order submission in the next step.</p></div></div>; }
 function Success({ onNavigate }: { onNavigate: (p: Page) => void }) { return <section className="success-page"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">One last step</p><h1>Your order is ready.</h1><p>Please complete the final order submission in the next step. Your details are already filled in for you.</p><button className="button button-dark" onClick={() => onNavigate('home')}>Return home <ArrowRight size={17} /></button></section>; }
-function Story({ onNavigate }: { onNavigate: (p: Page) => void }) { return <section className="story-page"><div className="story-intro"><p className="eyebrow">Our story</p><h1>Food that feels<br /><em>like a good idea.</em></h1><p>At Anamritam, we’re bringing the familiar comfort of Indian nourishment into the rhythm of modern life.</p></div><img className="story-wide-image" src="https://images.pexels.com/photos/7932705/pexels-photo-7932705.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" alt="Ingredients laid out for a wholesome recipe" /><div className="story-columns"><div><p className="eyebrow">Our belief</p><h2>Simple ingredients.<br />Thoughtful making.</h2></div><div><p>We look to the foods, flavours and rituals that have always made Indian kitchens special. Then we make them fit the way we live now: busy mornings, in-between moments and everyday celebrations.</p><p>Our ladoos and protein bars are made to be picked up, shared and enjoyed — with no fuss and nothing to prove.</p><button className="underlined-link" onClick={() => onNavigate('products')}>Taste the good stuff <ArrowRight size={15} /></button></div></div><WhySection /></section>; }
+function Story({ onNavigate }: { onNavigate: (p: Page) => void }) { return <section className="story-page"><div className="story-intro"><p className="eyebrow">Our story</p><h1>Food that feels<br /><em>like a good idea.</em></h1><p>At Anamritam, we’re bringing the familiar comfort of Indian nourishment into the rhythm of modern life.</p></div><img className="story-wide-image" src="/images/story.jpg" alt="Ingredients laid out for a wholesome recipe" /><div className="story-columns"><div><p className="eyebrow">Our belief</p><h2>Simple ingredients.<br />Thoughtful making.</h2></div><div><p>We look to the foods, flavours and rituals that have always made Indian kitchens special. Then we make them fit the way we live now: busy mornings, in-between moments and everyday celebrations.</p><p>Our ladoos and protein bars are made to be picked up, shared and enjoyed — with no fuss and nothing to prove.</p><button className="underlined-link" onClick={() => onNavigate('products')}>Taste the good stuff <ArrowRight size={15} /></button></div></div><WhySection /></section>; }
+function WhyAnamritam({ onNavigate }: { onNavigate: (p: Page) => void }) { const benefits = [{ icon: Leaf, title: 'Thoughtfully made', text: 'Every product is crafted with care, with attention to the ingredients and the joy of preparation.' }, { icon: Sparkles, title: 'Wholesome ingredients', text: 'We focus on familiar, carefully selected ingredients that make everyday nourishment feel good.' }, { icon: Star, title: 'Made in India', text: 'Our point of view is rooted in Indian ingredients, flavours and food traditions.' }, { icon: Zap, title: 'Naturally delicious', text: 'Wholesome food should be something you look forward to, so flavour is always part of the experience.' }, { icon: Clock3, title: 'Made for everyday nourishment', text: 'Anamritam fits into real routines with food that is simple, approachable and easy to enjoy.' }]; return <section className="why-page"><div className="why-page-intro"><div><p className="eyebrow">Why Anamritam</p><h1>Goodness You Can <em>Trust.</em></h1><p>At Anamritam, we believe everyday nourishment should be simple, wholesome and genuinely enjoyable.</p></div><img src="/images/why.jpg" alt="Wholesome ingredients prepared for Anamritam" /></div><div className="why-page-benefits"><div><p className="eyebrow">Why choose Anamritam?</p><h2>A better kind of everyday good.</h2></div><div className="why-page-grid">{benefits.map(item => <article className="why-page-item" key={item.title}><item.icon size={25} strokeWidth={1.5} /><h3>{item.title}</h3><p>{item.text}</p></article>)}</div></div><div className="why-page-cta"><p>Discover wholesome goodness, made for everyday life.</p><button className="button button-dark" onClick={() => onNavigate('products')}>Explore our products <ArrowRight size={17} /></button></div></section>; }
 function Contact() { return <section className="contact-page"><div className="contact-intro"><p className="eyebrow">We’d love to hear from you</p><h1>Let’s talk<br /><em>good food.</em></h1><p>Questions about an order, our products or just want to say hello? We’re here.</p></div><div className="contact-details"><div><span>Email</span><a href={`mailto:${CONTACT_DETAILS.email}`}>{CONTACT_DETAILS.email}</a></div><div><span>Phone</span><p>{CONTACT_DETAILS.phone}</p></div><div><span>Address</span><p>{CONTACT_DETAILS.address}</p></div><a className="button button-dark" href={`mailto:${CONTACT_DETAILS.email}`}>Send us a note <ArrowRight size={17} /></a></div></section>; }
 function Footer({ onNavigate }: { onNavigate: (p: Page) => void }) { return <footer className="footer"><div className="footer-main"><div className="footer-brand"><img src="/images/anamritum_logo.jpg" alt="Anamritam" /><p>Pure · Fresh · Wholesome</p><a href={instagramUrl} target="_blank" rel="noreferrer"><Instagram size={18} /> Instagram</a></div><div className="footer-links"><div><h3>Explore</h3><button onClick={() => onNavigate('home')}>Home</button><button onClick={() => onNavigate('products')}>Products</button><button onClick={() => onNavigate('story')}>Our story</button><button onClick={() => onNavigate('contact')}>Contact</button></div><div><h3>Customer</h3><button onClick={() => onNavigate('login')}>Login</button><button onClick={() => onNavigate('register')}>Register</button><button onClick={() => onNavigate('cart')}>Cart</button></div><div className="footer-contact"><h3>Say hello</h3><p>{CONTACT_DETAILS.email}</p><p>{CONTACT_DETAILS.phone}</p></div><div className="footer-visit"><h3>Visit Us</h3><p>13, Institutional Area,<br />Lodhi Road,<br />New Delhi-110003</p></div></div></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Anamritam</span><span>Made with care in India</span></div></footer>; }
 
