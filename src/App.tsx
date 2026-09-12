@@ -5,6 +5,7 @@ import {
   Star, Sun, Trash2, Truck, UserRound, X, Zap,
 } from 'lucide-react';
 import { CONTACT_DETAILS, GOOGLE_FORM_FIELD_IDS, GOOGLE_FORM_URL } from '@/config';
+import Chatbot from '@/components/Chatbot/Chatbot';
 
 type Theme = 'light' | 'dark';
 type Category = 'Ladoos' | 'Protein Bars';
@@ -186,6 +187,20 @@ function App() {
       {page === 'success' && <Success onNavigate={navigate} />}
     </main>
     <Footer onNavigate={navigate} />
+    <Chatbot
+      products={products}
+      onViewProduct={productId => {
+        const product = products.find(item => item.id === productId);
+        if (product) openProduct(product);
+      }}
+      onAddToCart={productId => {
+        const product = products.find(item => item.id === productId);
+        if (product) addToCart(product);
+      }}
+      onExplore={navigateToProducts}
+      onOpenCart={() => setCartOpen(true)}
+      onContact={() => navigate('contact')}
+    />
     {cartOpen && <CartDrawer cart={cart} subtotal={subtotal} onChange={changeQuantity} onRemove={removeItem} onClose={() => setCartOpen(false)} onNavigate={navigate} />}
     {toast && <div className="toast"><Check size={17} />{toast}</div>}
   </div>;
