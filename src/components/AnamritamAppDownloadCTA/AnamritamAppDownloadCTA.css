@@ -1,0 +1,231 @@
+/* ==========================================================================
+   ANAMRITAM APP DOWNLOAD CTA — Floating Button
+   All class names are prefixed with .apk-cta to prevent style leakage.
+   ========================================================================== */
+
+/* Container — fixed to right side, positioned above the chatbot toggle.
+   Chatbot sits at bottom: 24px with a 58px toggle → top edge ~82px from bottom.
+   We sit at bottom: 96px so there is ~14px gap above chatbot on desktop.
+   On mobile (≤640px): chatbot is at bottom: 14px with 52px toggle → 66px from bottom.
+   We sit at bottom: 82px to maintain the gap. */
+.apk-cta {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 1100; /* below chatbot (1200) but above most page content */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: 'DM Sans', sans-serif;
+  /* Prevent interaction from bleeding into nearby elements */
+  pointer-events: none;
+}
+
+/* The actual anchor element */
+.apk-cta-link {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 52px;
+  border-radius: 999px;
+  /* Collapsed width shows only the icon */
+  width: 52px;
+  overflow: hidden;
+  background: var(--primary, #164a2b);
+  color: var(--primary-foreground, #f7f3e8);
+  border: 1.5px solid rgba(214, 154, 45, 0.45);
+  box-shadow:
+    0 4px 16px rgba(22, 74, 43, 0.28),
+    0 1px 4px rgba(22, 74, 43, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+  cursor: pointer;
+  /* Smooth expand toward the left */
+  transition:
+    width 0.32s cubic-bezier(0.34, 1.26, 0.64, 1),
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+  /* Anchor the button to the right so it expands leftward */
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+/* Expanded state — triggered by hover on desktop, and by .is-expanded on mobile */
+.apk-cta-link:hover,
+.apk-cta-link.is-expanded {
+  width: 228px;
+  background: var(--primary-hover, #215e39);
+  border-color: var(--accent, #d69a2d);
+  box-shadow:
+    0 8px 28px rgba(22, 74, 43, 0.38),
+    0 2px 8px rgba(22, 74, 43, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Keyboard focus state — visible ring matching site's accent color */
+.apk-cta-link:focus-visible {
+  outline: 2px solid var(--accent, #d69a2d);
+  outline-offset: 3px;
+  width: 228px;
+  background: var(--primary-hover, #215e39);
+  border-color: var(--accent, #d69a2d);
+}
+
+/* Icon container — fixed 52px × 52px circle, always visible */
+.apk-cta-icon {
+  flex-shrink: 0;
+  width: 50px;         /* 52px total minus 1.5px border × 2 = 49px, round up */
+  height: 50px;
+  display: grid;
+  place-items: center;
+  color: var(--accent, #d69a2d);
+  /* Subtle inner glow on the icon area */
+}
+
+/* The Android SVG icon */
+.apk-cta-icon svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  transition: transform 0.22s ease;
+}
+
+.apk-cta-link:hover .apk-cta-icon svg,
+.apk-cta-link.is-expanded .apk-cta-icon svg,
+.apk-cta-link:focus-visible .apk-cta-icon svg {
+  transform: scale(1.12);
+}
+
+/* Text label — hidden until expanded */
+.apk-cta-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 18px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(6px);
+  transition:
+    opacity 0.2s ease 0.08s,
+    transform 0.22s ease 0.06s;
+  pointer-events: none;
+}
+
+.apk-cta-link:hover .apk-cta-label,
+.apk-cta-link.is-expanded .apk-cta-label,
+.apk-cta-link:focus-visible .apk-cta-label {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.apk-cta-label-primary {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary-foreground, #f7f3e8);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.apk-cta-label-secondary {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent, #d69a2d);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Gold accent separator between icon and label */
+.apk-cta-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(214, 154, 45, 0.3);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.18s ease 0.1s;
+}
+
+.apk-cta-link:hover .apk-cta-divider,
+.apk-cta-link.is-expanded .apk-cta-divider,
+.apk-cta-link:focus-visible .apk-cta-divider {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================================================== */
+
+/* Tablet (≤1024px) — no functional changes, already fits fine */
+
+/* Mobile (≤640px) — matches chatbot mobile positioning */
+@media (max-width: 640px) {
+  .apk-cta {
+    right: 14px;
+    bottom: 82px; /* chatbot at bottom: 14px + 52px toggle + 16px gap = 82px */
+  }
+
+  .apk-cta-link {
+    height: 48px;
+    width: 48px;
+  }
+
+  .apk-cta-link:hover,
+  .apk-cta-link.is-expanded {
+    width: 210px;
+  }
+
+  .apk-cta-link:focus-visible {
+    width: 210px;
+  }
+
+  .apk-cta-icon {
+    width: 46px;
+    height: 46px;
+  }
+
+  .apk-cta-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .apk-cta-label-primary {
+    font-size: 11px;
+  }
+
+  .apk-cta-label-secondary {
+    font-size: 9px;
+  }
+}
+
+/* Very small screens (≤375px) — keep label concise */
+@media (max-width: 375px) {
+  .apk-cta-link:hover,
+  .apk-cta-link.is-expanded {
+    width: 196px;
+  }
+
+  .apk-cta-link:focus-visible {
+    width: 196px;
+  }
+
+  .apk-cta-label-primary {
+    font-size: 10.5px;
+  }
+}
+
+/* Reduced motion — disable transitions */
+@media (prefers-reduced-motion: reduce) {
+  .apk-cta-link,
+  .apk-cta-icon svg,
+  .apk-cta-label,
+  .apk-cta-divider {
+    transition: none !important;
+  }
+}

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CONTACT_DETAILS, GOOGLE_FORM_FIELD_IDS, GOOGLE_FORM_URL } from '@/config';
 import Chatbot from '@/components/Chatbot/Chatbot';
+import AnamritamAppDownloadCTA from '@/components/AnamritamAppDownloadCTA/AnamritamAppDownloadCTA';
 
 type Theme = 'light' | 'dark';
 type Category = 'Ladoos' | 'Protein Bars';
@@ -201,6 +202,7 @@ function App() {
       onOpenCart={() => setCartOpen(true)}
       onContact={() => navigate('contact')}
     />
+    <AnamritamAppDownloadCTA />
     {cartOpen && <CartDrawer cart={cart} subtotal={subtotal} onChange={changeQuantity} onRemove={removeItem} onClose={() => setCartOpen(false)} onNavigate={navigate} />}
     {toast && <div className="toast"><Check size={17} />{toast}</div>}
   </div>;
